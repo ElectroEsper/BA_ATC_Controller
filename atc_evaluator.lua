@@ -6,10 +6,18 @@ end
 
 function Evaluator()
     local task = input_5
+    output_1 = nil
+    output_2 = nil
+    output_5 = 0
+
     if task ~= 1 then return end
     local grid = json.parse(input_1)
-    --DebugMsg(input_1)
+    local air_grid = json.parse(input_2)
     local candidates = {}
+
+    -- Sends Air contact dirrectly to Coordinator
+    --DebugMsg("Evaluator :: Air target received => " .. input_2)
+    --output_2 = input_2
 
     for x, col in pairs(grid) do
         for y, cell in pairs(col) do
@@ -24,11 +32,20 @@ function Evaluator()
         DebugMsg("Evaluator :: " .. json.serialize(candidates))
         output_1 = json.serialize(candidates)
         output_5 = 1
-        --CompleteWithOutput()
+        CompleteWithOutput()
     else
         DebugMsg("Evaluator :: No candidates found")
-        output_1 = nil
-        output_5 = 0
+
+    end
+    
+    if #air_grid > 0 then
+        DebugMsg("Evaluator :: " .. #air_grid .. " bandit found")
+        DebugMsg("Evaluator :: " .. json.serialize(air_grid))
+        output_2 = input_2
+        output_5 = 1
+    else
+        DebugMsg("Evaluator :: No bandit found")
+
     end
 
 end
