@@ -1,3 +1,5 @@
+Feel free to use it in your scenarios. I would apreciate a credit mention if you do :)
+
 How to use:
 
 1 - Make sure all .lua files are in your scenario folder
