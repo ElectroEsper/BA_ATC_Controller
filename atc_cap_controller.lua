@@ -2,9 +2,9 @@
 -- Handles tasking of CAS planes, strike execution, and rearming cycles
 
 if not _G.initialized then
-    _G.initialized = true
-    _G.targets = {}                -- Active target cells being engaged
-    --_G.plane_tasked = {}         -- Maps plane UID to target grid
+    
+    _G.rearming_time = 240 -- seconds
+    _G.regen_time = 600 -- seconds
     _G.assets = {
         ready = 2,
         busy = 0,
@@ -13,6 +13,8 @@ if not _G.initialized then
         regen_timer = {},
         tasked = {}
     }
+
+
     _G.target_queue = {
         head = 1,
         tail = 1,
@@ -20,9 +22,12 @@ if not _G.initialized then
         targets = {}
     }
     _G.awaiting_plane_spawn = false
-    _G.rearming_time = 5
-    _G.regen_time = 10
+    
     _G.userdata = nil
+
+    _G.targets = {}                -- Active target cells being engaged
+
+    _G.initialized = true
 end
 
 function Controller()
