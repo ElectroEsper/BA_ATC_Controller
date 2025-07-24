@@ -41,6 +41,7 @@ function Controller()
     output_2 = nil
     output_5 = 0
 
+    CheckIdle()
     UpdateRearmTimer()
     UpdateRegenTimer()
     --OverlordPicture()
@@ -64,6 +65,17 @@ function Controller()
     OverlordPicture()
 
     input_5 = nil
+end
+
+function CheckIdle()
+    for pid, entry in pairs(_G.assets.tasked) do
+        if IsIdleFromId(pid) then
+            DebugMsg("CAP Controller :: Plane #" .. pid .. " is RTB, no targets")
+            output_2 = GetUnitFromId(pid)
+            output_5 = 3
+            CompleteWithOutput()
+        end
+    end
 end
 
 function OverlordPicture()
@@ -135,6 +147,12 @@ function DeployInterceptor()
     _G.assets.busy = _G.assets.busy + 1
     _G.awaiting_plane_spawn = false
     DebugMsg("CAP Controller :: Plane #" .. pid .. " scambled")
+end
+
+function IsIdleFromId(uid)
+    local unit = GetUnitFromId(uid)
+    local unit_lua = API.ConvertToLuaUnit(unit)
+    return unit_lua.IsIdle()
 end
 
 function HandleRearming()
