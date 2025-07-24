@@ -27,7 +27,6 @@ if not _G.initialized then
 
     _G.targets = {}                -- Active target cells being engaged
     _G.plane_tasking = {}         -- Maps plane UID to target grid
-
     _G.initialized = true
 end
 
@@ -40,6 +39,7 @@ function Controller()
     output_1 = nil
     output_2 = nil
     output_5 = 0
+    CheckStrikerDistance()
 
     UpdateRearmTimer()
     UpdateRegenTimer()
@@ -61,6 +61,85 @@ function Controller()
     end
 
     input_5 = nil
+end
+
+function CheckStrikerDistance()
+    DebugMsg("CAS Controller :: Checking striker distance...")
+    for k, pid in pairs(_G.plane_tasking) do
+        DebugMsg("CAS Controller :: CheckStrikerDistance :: Getting plane")
+        if not  _G.assets.tasked[k][2] then  
+            local plane = GetUnitFromId(k)
+            local plane_lua = API.ConvertToLuaUnit(plane)
+            local plane_pos = plane_lua.GetPosition()
+            DebugMsg("CAS Controller :: CheckStrikerDistance :: Plane pos @ (" .. plane_pos[0] .. "," .. plane_pos[1] .. "," .. plane_pos[2] .. ")")
+            DebugMsg("CAS Controller :: CheckStrikerDistance :: Getting x,y")
+            local x = pid.x
+            local y = pid.y
+            DebugMsg("CAS Controller :: CheckStrikerDistance :: Setting position and count var")
+            local position_total = plane_pos
+            local position_entry_count = 0
+            position_total[0] = 0
+            position_total[1] = 0
+            position_total[2] = 0
+            DebugMsg("CAS Controller :: CheckStrikerDistance :: Looping targets")
+            for _, uid in ipairs(_G.targets[x][y].targets_uids) do
+                if IsUnitAlive(uid) then
+                    local pos = GetUnitPositionFromId(uid)
+                    position_total[0] = position_total[0] + pos[0]
+                    position_total[1] = position_total[1] + pos[1]
+                    position_total[2] = position_total[2] + pos[2]
+                    position_entry_count = position_entry_count + 1
+                end
+            end
+            DebugMsg("CAS Controller :: CheckStrikerDistance :: Position Entry Count = " .. position_entry_count)
+            DebugMsg("CAS Controller :: CheckStrikerDistance :: Total pos @ (" .. position_total[0] .. "," .. position_total[1] .. "," .. position_total[2] .. ")")
+            --DebugMsg("CAS Controller :: CheckStrikerDistance :: Getting average pos")
+            position_total[0] = position_total[0] /  position_entry_count
+            position_total[1] = position_total[1] /  position_entry_count
+            position_total[2] = position_total[2] /  position_entry_count
+            DebugMsg("CAS Controller :: CheckStrikerDistance :: Average pos @ (" .. position_total[0] .. "," .. position_total[1] .. "," .. position_total[2] .. ")")
+            DebugMsg("CAS Controller :: CheckStrikerDistance :: Getting distance")
+            local distance = Distance(plane_lua.GetPosition(), position_total)
+            DebugMsg("CAS Controller :: CheckStrikerDistance :: Distance is: " .. distance .. " meters")
+            if distance <= 3000 then
+                DebugMsg("CAS Controller :: Striker #" .. k .. " is at " .. distance .. " meters of targets")
+                AdjustTarget(k,_G.targets[x][y].targets_uids)
+
+            else
+                DebugMsg("CAS Controller :: Striker #" .. k .. " is at " .. distance .. " meters of targets")
+            end
+        else
+            DebugMsg("CAS Controller :: Striker #" .. k .. " has already adjsuted...")
+        end
+    end
+
+    
+    
+end
+
+function AdjustTarget(pid, targets_uids)
+    DebugMsg("CAS Controller :: Striker #" .. pid .. " is adjusting aiming...")
+    local plane = GetUnitFromId(pid)
+    local target_units = _G.userdata.Clone()
+    target_units.Clear()
+    for _, uid in ipairs(targets_uids) do
+        if IsUnitAlive(uid) then
+            target_units.Add(uid)
+            DebugMsg("CAS Controller :: AdjustTarget :: Adding unit #" .. uid .. " to target")
+        end
+    end
+
+    if target_units.Count > 0 then
+        DebugMsg("CAS Controller :: AdjustTarget :: Sending Adjusting Task Code")
+        output_1 = target_units
+        output_2 = plane
+        output_5 = 3
+        CompleteWithOutput()
+
+        _G.assets.tasked[pid][2] = true
+    else
+        DebugMsg("CAS Controller :: AdjustTarget :: No more target...")
+    end
 end
 
 function TryAssignPlaneFromQueue()
@@ -103,6 +182,22 @@ function ReceiveData()
     DebugMsg("CAS Controller :: There is " .. QueueSize() .. " target(s) in queue")
 end
 
+function Distance(v1, v2)
+    DebugMsg("CAS Controller :: CheckStrikerDistance :: Distance")
+    DebugMsg("CAS Controller :: CheckStrikerDistance :: Distance :: V1 @ (" .. v1[0] .. "," .. v1[1] .. "," .. v1[2] .. ")")
+    DebugMsg("CAS Controller :: CheckStrikerDistance :: Distance :: V2 @ (" .. v2[0] .. "," .. v2[1] .. "," .. v2[2] .. ")")
+    local dx = v1[0] - v2[0]
+    DebugMsg("CAS Controller :: CheckStrikerDistance :: Distance :: Dx >> " .. dx)
+    
+    local dy = v1[1] - v2[1]
+    DebugMsg("CAS Controller :: CheckStrikerDistance :: Distance :: Dx >> " .. dy)
+    local dz = (v1[2] and v2[2]) and (v1[2] - v2[2]) or 0 -- Handle optional z component
+    DebugMsg("CAS Controller :: CheckStrikerDistance :: Distance :: Dx >> " .. dz)
+
+    DebugMsg("CAS Controller :: CheckStrikerDistance :: Distance :: Returning >> " .. math.sqrt(dx * dx + dy * dy + dz * dz))
+    return math.sqrt(dx * dx + dy * dy + dz * dz) * 2
+end
+
 function AssignPlaneToTarget()
     local plane = API.ConvertToLuaUnit(input_2)
     local pid = plane.UID
@@ -127,7 +222,7 @@ function AssignPlaneToTarget()
         unit_output.Add(uid)
     end
 
-    _G.assets.tasked[pid] = {true}
+    _G.assets.tasked[pid] = {true, false} -- tasked, hasAdjustedOnAproach
 
     output_1 = unit_output
     output_2 = GetUnitFromId(pid)
@@ -286,6 +381,13 @@ function GetUnitFromId(uid)
     local empty_unit = _G.userdata.Clone()
     empty_unit.Add(uid)
     return empty_unit
+end
+
+function GetUnitPositionFromId(uid)
+    local unit = GetUnitFromId(uid)
+    local unit_lua = API.ConvertToLuaUnit(unit)
+    local unit_pos = unit_lua.GetPosition()
+    return unit_pos
 end
 
 function AddToQueue(x, y, unit_id)
