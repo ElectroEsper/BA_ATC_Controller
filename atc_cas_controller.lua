@@ -23,13 +23,13 @@ if not _G.initialized then
 
     _G.active_targets = {}        -- tid -> {uids = {}, assigned = bool}
     _G.plane_tasking = {}         -- pid -> tid
+    _G.unit_to_tid = {}           -- uid -> tid (prevent duplicate targeting)
     _G.initialized = true
 end
 
 function Controller()
     if _G.userdata == nil then SetEmptyUserData() end
 
-    local task = input_5
     output_1, output_2, output_5 = nil, nil, 0
 
     CheckStrikerDistance()
@@ -38,6 +38,7 @@ function Controller()
 
     TryAssignPlaneFromQueue()
 
+    local task = input_5
     if task == 1 then ReceiveData()
     elseif task == 2 then AssignPlaneToTarget()
     elseif task == 3 then HandleStrikeComplete()
@@ -58,7 +59,12 @@ function ReceiveData()
 
     local alive_uids = {}
     for _, uid in ipairs(uids) do
-        if IsUnitAlive(uid) then table.insert(alive_uids, uid) end
+        if IsUnitAlive(uid) and not _G.unit_to_tid[uid] then
+            table.insert(alive_uids, uid)
+        elseif _G.unit_to_tid[uid] then
+            DebugMsg("CAS Controller :: UID " .. uid .. " is already assigned to an active target. Rejecting group.")
+            return
+        end
     end
     if #alive_uids == 0 then return end
 
@@ -66,6 +72,9 @@ function ReceiveData()
     if not _G.active_targets[tid] then
         DebugMsg("CAS Controller :: Registering new target group " .. tid)
         _G.active_targets[tid] = {uids = alive_uids, assigned = false}
+        for _, uid in ipairs(alive_uids) do
+            _G.unit_to_tid[uid] = tid
+        end
         AddToQueue(tid)
     else
         DebugMsg("CAS Controller :: Target group " .. tid .. " already exists")
@@ -160,12 +169,11 @@ function AdjustTarget(pid, targets_uids)
 end
 
 function HandleStrikeComplete()
-    DebugMsg("CAS Controller :: HandleStrikeComplete")
     local plane = API.ConvertToLuaUnit(input_2)
     local pid = plane.UID
     local tid = _G.plane_tasking[pid]
     if not tid then
-        DebugMsg("CAS Controller :: HandleStrikeComplete :: No task found for plane " .. pid)
+        DebugMsg("CAS Controller :: No task found for plane " .. pid)
         return
     end
 
@@ -173,21 +181,30 @@ function HandleStrikeComplete()
     for _, uid in ipairs(_G.active_targets[tid].uids) do
         if IsUnitAlive(uid) then
             table.insert(alive_uids, uid)
-            DebugMsg("CAS Controller :: HandleStrikeComplete :: Target UID " .. uid .. " is still alive after strike")
+            DebugMsg("CAS Controller :: Target UID " .. uid .. " is still alive after strike")
+        else
+            _G.unit_to_tid[uid] = nil
         end
     end
 
     if #alive_uids > 0 then
-        DebugMsg("CAS Controller :: HandleStrikeComplete :: Target group " .. tid .. " survived, requeuing")
+        DebugMsg("CAS Controller :: Target group " .. tid .. " survived, requeuing")
         _G.active_targets[tid] = {uids = alive_uids, assigned = false}
+        for _, uid in ipairs(alive_uids) do
+            _G.unit_to_tid[uid] = tid
+        end
         AddToQueue(tid)
     else
-        DebugMsg("CAS Controller :: HandleStrikeComplete :: Target group " .. tid .. " eliminated")
+        DebugMsg("CAS Controller :: Target group " .. tid .. " eliminated")
+        for _, uid in ipairs(_G.active_targets[tid].uids) do
+            _G.unit_to_tid[uid] = nil
+        end
         _G.active_targets[tid] = nil
     end
 
     _G.plane_tasking[pid] = nil
 end
+
 
 function HandleRearming()
     local pid = input_2.GetList[1]
