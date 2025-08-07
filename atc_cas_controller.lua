@@ -28,6 +28,7 @@ if not _G.initialized then
 end
 
 function Controller()
+    DebugMsg("CAS Controller :: Task Code " .. input_5)
     if _G.userdata == nil then SetEmptyUserData() end
 
     output_1, output_2, output_5 = nil, nil, 0
@@ -45,7 +46,7 @@ function Controller()
     elseif task == 4 then HandleRearming()
     elseif task == 5 then HandleDeath()
     end
-
+    input_2 = nil
     input_5 = nil
 end
 
@@ -114,35 +115,42 @@ end
 
 function CheckStrikerDistance()
     for pid, tid in pairs(_G.plane_tasking) do
-        if not _G.assets.tasked[pid][2] then
-            DebugMsg("CAS Controller :: Checking distance for plane " .. pid .. " to target group " .. tid)
-            local plane = GetUnitFromId(pid)
-            local plane_lua = API.ConvertToLuaUnit(plane)
-            local pos_total = { [0] = 0, [1] = 0, [2] = 0 }
-            local count = 0
+        if IsUnitAlive_2(GetUnitFromId(pid)) then
+            if not _G.assets.tasked[pid][2] then
+                DebugMsg("CAS Controller :: Checking distance for plane " .. pid .. " to target group " .. tid)
+                local plane = GetUnitFromId(pid)
+                local plane_lua = API.ConvertToLuaUnit(plane)
+                local pos_total = { [0] = 0, [1] = 0, [2] = 0 }
+                local count = 0
 
-            for _, uid in ipairs(_G.active_targets[tid].uids) do
-                if IsUnitAlive(uid) then
-                    local pos = GetUnitPositionFromId(uid)
-                    pos_total[0] = pos_total[0] + pos[0]
-                    pos_total[1] = pos_total[1] + pos[1]
-                    pos_total[2] = pos_total[2] + pos[2]
-                    count = count + 1
+                for _, uid in ipairs(_G.active_targets[tid].uids) do
+                    if IsUnitAlive(uid) then
+                        local pos = GetUnitPositionFromId(uid)
+                        pos_total[0] = pos_total[0] + pos[0]
+                        pos_total[1] = pos_total[1] + pos[1]
+                        pos_total[2] = pos_total[2] + pos[2]
+                        count = count + 1
+                    end
+                end
+
+                if count > 0 then
+                    pos_total[0] = pos_total[0] / count
+                    pos_total[1] = pos_total[1] / count
+                    pos_total[2] = pos_total[2] / count
+                    local dist = Distance(plane_lua.GetPosition(), pos_total)
+                    DebugMsg("CAS Controller :: Plane #" .. pid .. " distance to target group " .. tid .. " is " .. dist .. " meters")
+                    if dist <= 3000 then AdjustTarget(pid, _G.active_targets[tid].uids) end
+                else
+                    DebugMsg("CAS Controller :: No alive targets for group " .. tid)
                 end
             end
-
-            if count > 0 then
-                pos_total[0] = pos_total[0] / count
-                pos_total[1] = pos_total[1] / count
-                pos_total[2] = pos_total[2] / count
-                local dist = Distance(plane_lua.GetPosition(), pos_total)
-                DebugMsg("CAS Controller :: Plane #" .. pid .. " distance to target group " .. tid .. " is " .. dist .. " meters")
-                if dist <= 3000 then AdjustTarget(pid, _G.active_targets[tid].uids) end
-            else
-                DebugMsg("CAS Controller :: No alive targets for group " .. tid)
-            end
+        else
         end
     end
+end
+
+function IsUnitAlive_2(unit)
+	return API.ConvertToLuaUnit(unit) ~= nil
 end
 
 function AdjustTarget(pid, targets_uids)
@@ -215,10 +223,24 @@ function HandleRearming()
 end
 
 function HandleDeath()
-    local pid = input_2.GetList[1]
-    if not _G.assets.tasked[pid] then return end
+    DebugMsg("CAS Controller :: HandleDeath")
+    local dead_plane = input_2
+    if not dead_plane then
+        DebugMsg("CAP Controller :: ERROR - Could not convert dead unit")
+        return
+    end
+    DebugMsg("CAS Controller :: HandleDeath :: Getting PID")
+    local pid = dead_plane.GetList[1]
+    DebugMsg("CAS Controller :: HandleDeath :: PID >> " .. pid)
+    --DebugMsg(json.serialize(_G.assets.tasked[pid]))
+    if not _G.assets.tasked[pid] then
+        DebugMsg("CAS Controller :: Plane #" .. pid .. " is not a CAS asset, ignoring")
+        return
+    end
+
 
     local tid = _G.plane_tasking[pid]
+    DebugMsg("CAS Controller :: HandleDeath :: Plane #" .. pid .. " has been shot-down")
     local alive_uids = {}
     for _, uid in ipairs(_G.active_targets[tid].uids) do
         if IsUnitAlive(uid) then table.insert(alive_uids, uid) end

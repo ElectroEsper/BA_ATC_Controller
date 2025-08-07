@@ -35,7 +35,7 @@ function Controller()
     if _G.userdata == nil then
         SetEmptyUserData()
     end
-
+    DebugMsg("CAP Controller :: Task Code " .. input_5)
     local task = input_5
     output_1 = nil
     output_2 = nil
@@ -63,17 +63,19 @@ function Controller()
     end
 
     OverlordPicture()
-
+    
     input_5 = nil
 end
 
 function CheckIdle()
     for pid, entry in pairs(_G.assets.tasked) do
-        if IsIdleFromId(pid) then
-            DebugMsg("CAP Controller :: Plane #" .. pid .. " is RTB, no targets")
-            output_2 = GetUnitFromId(pid)
-            output_5 = 3
-            CompleteWithOutput()
+        if IsUnitAlive(pid) then
+            if IsIdleFromId(pid) then
+                DebugMsg("CAP Controller :: Plane #" .. pid .. " is RTB, no targets")
+                output_2 = GetUnitFromId(pid)
+                output_5 = 3
+                CompleteWithOutput()
+            end
         end
     end
 end
@@ -186,7 +188,7 @@ function HandleDeath()
     --local pid = dead_plane.UID
 
     if not _G.assets.tasked[pid] then
-        DebugMsg("CAP Controller :: Plane #" .. pid .. " is not a CAS asset, ignoring")
+        DebugMsg("CAP Controller :: Plane #" .. pid .. " is not a CAP asset, ignoring")
         return
     end
 
