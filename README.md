@@ -1,6 +1,34 @@
 Feel free to use it in your scenarios. I would apreciate a credit mention if you do :)
 
-How to use:
+
+# KNOWN ISSUES:
+
+## CAS (Close Air Support)
+
+:: Retargeting Behavior
+CAS units can and will re-target enemy units they haven't seen in a while, as long as the target remains alive.
+
+## CAP (Combat Air Patrol)
+
+:: Idle RTB Behavior
+CAP units will return to base if idle for any amount of time, including situations where:
+- They lose sight of their target.
+- No new targets are immediately available.
+
+## Engine Limitations
+
+:: Loadout Detection Limitation
+The ATC cannot detect aircraft loadouts, meaning:
+- Strike tasking cannot be adjusted based on ordnance type (e.g., bombs vs missiles).
+- Leads to potential mismatch between mission profile and aircraft capability.
+
+
+:: Unit Categorization Restriction
+- ATC can only differentiate units by broad category (e.g., Infantry, Vehicle).
+- Cannot distinguish between unit subtypes (e.g., light vs heavy armor).
+- Limits precision in assigning optimal strike types.
+
+# HOW TO USE:
 
 1 - Make sure all .lua files are in your scenario folder
 <img width="993" height="428" alt="Screenshot 2025-07-19 172507" src="https://github.com/user-attachments/assets/48be0b1f-6470-4c7f-bea4-7b89efe20a23" />
